@@ -3,6 +3,7 @@
   
   <!-- Field types -->
   <fieldType name="string" class="solr.StrField" sortMissingLast="true"/>
+  
   <fieldType name="text_general" class="solr.TextField" positionIncrementGap="100">
     <analyzer type="index">
       <tokenizer class="solr.StandardTokenizerFactory"/>
@@ -17,30 +18,51 @@
     </analyzer>
   </fieldType>
   
-  <!-- Dense vector field for semantic search -->
-  <fieldType name="knn_vector" class="solr.DenseVectorField" vectorDimension="384" similarityFunction="cosine" knnAlgorithm="hnsw">
+  <!-- Fixed: Dense vector field for semantic search (Solr 9.x compatible) -->
+  <fieldType name="knn_vector" class="solr.DenseVectorField" 
+             vectorDimension="384" 
+             similarityFunction="cosine" 
+             knnAlgorithm="hnsw">
     <lst name="hnswParameters">
       <int name="maxConn">16</int>
       <int name="beamWidth">100</int>
+      <int name="maxLevels">7</int>
     </lst>
   </fieldType>
   
-  <fieldType name="plong" class="solr.LongPointField"/>
-  <fieldType name="pdate" class="solr.DatePointField"/>
-  <fieldType name="pfloat" class="solr.FloatPointField"/>
+  <!-- Numeric field types -->
+  <fieldType name="plong" class="solr.LongPointField" docValues="true"/>
+  <fieldType name="pdate" class="solr.DatePointField" docValues="true"/>
+  <fieldType name="pfloat" class="solr.FloatPointField" docValues="true"/>
+  <fieldType name="pint" class="solr.IntPointField" docValues="true"/>
   
-  <!-- Fields -->
+  <!-- Core fields -->
   <field name="id" type="string" indexed="true" stored="true" required="true" multiValued="false"/>
   <field name="url" type="string" indexed="true" stored="true"/>
   <field name="title" type="text_general" indexed="true" stored="true"/>
   <field name="content" type="text_general" indexed="true" stored="true"/>
-  <field name="content_vector" type="knn_vector" indexed="true" stored="true"/>
+  
+  <!-- Fixed: Vector field with proper configuration -->
+  <field name="content_vector" type="knn_vector" indexed="true" stored="true" required="false"/>
+  
+  <!-- Additional fields for crawling and ranking -->
   <field name="domain" type="string" indexed="true" stored="true"/>
-  <field name="crawl_date" type="pdate" indexed="true" stored="true"/>
+  <field name="crawl_date" type="pdate" indexed="true" stored="true" default="NOW"/>
   <field name="page_rank" type="pfloat" indexed="true" stored="true" default="0.0"/>
   <field name="content_length" type="plong" indexed="true" stored="true"/>
   
-  <!-- Copy field for default search -->
+  <!-- Additional useful fields -->
+  <field name="language" type="string" indexed="true" stored="true" default="en"/>
+  <field name="depth" type="pint" indexed="true" stored="true" default="0"/>
+  <field name="outlinks" type="pint" indexed="true" stored="true" default="0"/>
+  
+  <!-- Dynamic fields for flexibility -->
+  <dynamicField name="*_s" type="string" indexed="true" stored="true"/>
+  <dynamicField name="*_i" type="pint" indexed="true" stored="true"/>
+  <dynamicField name="*_f" type="pfloat" indexed="true" stored="true"/>
+  <dynamicField name="*_d" type="pdate" indexed="true" stored="true"/>
+  
+  <!-- Copy fields for search -->
   <copyField source="title" dest="content"/>
   
   <!-- Unique key -->
