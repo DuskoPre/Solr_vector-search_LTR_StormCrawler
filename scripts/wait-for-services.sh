@@ -1,86 +1,48 @@
 #!/bin/bash
 set -e
 
-    parser.feed(sys.stdin.read())
-    text = parser.get_text()
-    # Clean and limit text
-    text = re.sub(r'\s+', ' ', text)[:5000]
-    print(text)
-except:
-    print('')
-")
-    
-    if [[ -z "$content" ]]; then
-        echo "❌ Failed to scrape content from $url"
-        return
-    fi
-    
-    # Extract title from content (first substantial line)
-    local title=$(echo "$content" | head -c 200 | sed 's/[^a-zA-Z0-9 ]//g' | head -1)
-    local domain=$(echo "$url" | sed -E 's|https?://([^/]+).*|\1|')
-    
-    echo "🧠 Generating embedding for: $title"
-    
-    # Generate real embedding using all-MiniLM-L6-v2
-    local embedding=$(curl -s "$EMBEDDING_URL/encode" \
-        -H "Content-Type: application/json" \
-        -d "{\"text\": \"$content\"}" | jq -r '.embedding')
-    
-    if [[ "$embedding" == "null" || -z "$embedding" ]]; then
-        echo "❌ Failed to generate embedding for $url"
-        return
-    fi
-    
-    echo "📝 Indexing document with real vector..."
-    
-    # Index document with real scraped content and generated vector
-    curl -X POST "$SOLR_URL/$COLLECTION_NAME/update" \
-        -H "Content-Type: application/json" \
-        -d "[{
-            \"id\": \"$doc_id\",
-            \"url\": \"$url\",
-            \"title\": \"$title\",
-            \"content\": \"$content\",
-            \"content_vector\": $embedding,
-            \"domain\": \"$domain\",
-            \"crawl_date\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",
-            \"page_rank\": 0.7,
-            \"content_length\": ${#content}
-        }]"
-    
-    echo "✅ Successfully indexed: $title"
-}
+echo "🚀 Waiting for all services to be ready..."
 
-# Wait for embedding service to be ready
-echo "⏳ Waiting for embedding service..."
-while ! curl -s "$EMBEDDING_URL/health" >/dev/null; do
-    echo "Waiting for all-MiniLM-L6-v2 service..."
-    sleep 5
+echo "⏳ Waiting for Solr..."
+while ! curl -s http://localhost:8983/solr/admin/ping >/dev/null 2>&1; do
+  echo "   Solr not ready yet, waiting 5s..."
+  sleep 5
 done
-echo "✅ Embedding service ready!"
+echo "✅ Solr is ready!"
 
-# Scrape and index real Wikipedia pages with actual embeddings
-echo "🔄 Scraping real content and generating embeddings..."
+echo "⏳ Waiting for Redis..."
+while ! redis-cli -h localhost -p 6379 ping >/dev/null 2>&1; do
+  echo "   Redis not ready yet, waiting 5s..."
+  sleep 5
+done
+echo "✅ Redis is ready!"
 
-scrape_and_index "https://en.wikipedia.org/wiki/Information_retrieval"
-scrape_and_index "https://en.wikipedia.org/wiki/Machine_learning" 
-scrape_and_index "https://en.wikipedia.org/wiki/Natural_language_processing"
+echo "⏳ Waiting for embedding service (all-MiniLM-L6-v2)..."
+timeout=180  # 3 minutes timeout for model loading
+elapsed=0
+while ! curl -s http://localhost:8080/health >/dev/null 2>&1; do
+  if [ $elapsed -ge $timeout ]; then
+    echo "❌ Timeout waiting for embedding service"
+    echo "📋 Check logs: docker logs embedding-service"
+    exit 1
+  fi
+  echo "   Loading all-MiniLM-L6-v2 model... (${elapsed}s elapsed)"
+  sleep 10
+  elapsed=$((elapsed + 10))
+done
+echo "✅ all-MiniLM-L6-v2 embedding service is ready!"
 
-# Commit all changes
-curl -X POST "$SOLR_URL/$COLLECTION_NAME/update" \
-    -H "Content-Type: application/json" \
-    -d '{"commit": {}}'
-
-# Also add URLs to StormCrawler queue for continuous crawling
-echo "📋 Adding URLs to StormCrawler queue for continuous crawling..."
-redis-cli -h localhost -p 6379 LPUSH "crawl.queue" \
-    "https://en.wikipedia.org/wiki/Information_retrieval" \
-    "https://en.wikipedia.org/wiki/Machine_learning" \
-    "https://en.wikipedia.org/wiki/Natural_language_processing" \
-    "https://en.wikipedia.org/wiki/Deep_learning" \
-    "https://en.wikipedia.org/wiki/Computer_vision" \
-    "https://en.wikipedia.org/wiki/Artificial_intelligence"
+echo "⏳ Waiting for Storm UI..."
+while ! curl -s http://localhost:8081 >/dev/null 2>&1; do
+  echo "   Storm UI not ready yet, waiting 5s..."
+  sleep 5
+done
+echo "✅ Storm UI is ready!"
 
 echo ""
-echo "✅ Real content indexed with all-MiniLM-L6-v2 embeddings!"
-echo "📊 Check indexed documents: curl -s 'http://localhost:8983/solr/hybrid_search/select?q=*:*&rows=0' | jq '.response.numFound'"
+echo "🎉 All services are ready!"
+echo "🔗 Access points:"
+echo "   📊 Solr Admin: http://localhost:8983"
+echo "   🌪️  Storm UI: http://localhost:8081" 
+echo "   🧠 Embeddings: http://localhost:8080/health"
+echo "   📝 Redis: localhost:6379"
