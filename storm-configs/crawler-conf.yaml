@@ -1,0 +1,69 @@
+# StormCrawler configuration for Solr indexing
+
+config:
+  # Solr configuration
+  solr.url: "http://solr:8983/solr/hybrid_search"
+  solr.commit.size: 100
+  solr.commit.within: 10000
+  
+  # Crawl politeness
+  fetcher.threads.number: 10
+  fetcher.max.queue.size: 500
+  fetcher.max.crawl.delay: 5000
+  
+  # URL frontier in Redis
+  urlbuffer.class: "com.digitalpebble.stormcrawler.redis.RedisSpout"
+  redis.host: "redis"
+  redis.port: 6379
+  
+  # Content limits
+  http.content.limit: 1048576
+  http.timeout: 30000
+  
+  # Robots.txt compliance
+  robots.txt.cache.size: 10000
+  robots.txt.strict.mode: false
+  
+  # URL filtering
+  urlfilters.config.file: "urlfilters.json"
+  
+  # Parse filters
+  parsefilters.config.file: "parsefilters.json"
+  
+  # Indexer configuration
+  indexer.class: "com.digitalpebble.stormcrawler.solr.SolrIndexer"
+  indexer.url.fieldname: "url"
+  indexer.text.fieldname: "content"
+  indexer.title.fieldname: "title"
+  indexer.domain.fieldname: "domain"
+  indexer.date.fieldname: "crawl_date"
+  
+  # Vector embedding
+  embeddings.service.url: "http://embedding-service:8080/encode"
+  embeddings.field.name: "content_vector"
+
+# URL filters
+urlfilters:
+  - class: "com.digitalpebble.stormcrawler.filtering.basic.BasicURLFilter"
+    name: "basicURLFilter"
+    params:
+      maxPathRepetition: 3
+      maxLength: 1024
+  
+  - class: "com.digitalpebble.stormcrawler.filtering.regex.RegexURLFilter"
+    name: "regexURLFilter"
+    params:
+      regexFilterFile: "regex-urlfilter.txt"
+
+# Parse filters
+parsefilters:
+  - class: "com.digitalpebble.stormcrawler.parse.filter.ContentFilter"
+    name: "contentFilter"
+    params:
+      pattern: "(?i)\\b(the|and|or|but|in|on|at|to|for|of|with|by)\\b"
+      
+  - class: "com.digitalpebble.stormcrawler.parse.filter.LinkParseFilter"
+    name: "linkParseFilter"
+    params:
+      # Extract outlinks for further crawling
+      pattern: "(?i)^https?://"
