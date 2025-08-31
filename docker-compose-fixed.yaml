@@ -1,0 +1,158 @@
+version: '3.8'
+
+services:
+  # Solr with LTR support
+  solr:
+    image: o19s/hello-ltr-solr:latest
+    container_name: solr-ltr
+    ports:
+      - "8983:8983"
+    environment:
+      - SOLR_HEAP=4g
+      - SOLR_OPTS=-Dsolr.modules=ltr
+    volumes:
+      - solr_data:/var/solr/data
+      - ./solr-configs:/opt/solr/server/solr/configsets/custom
+      - ./solr-schema:/opt/solr/contrib/ltr/schema
+    networks:
+      - search_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8983/solr/admin/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Fixed: Vector embedding service with proper Dockerfile
+  embedding-service:
+    build: ./embedding-service
+    container_name: embedding-service
+    ports:
+      - "8080:8080"
+    environment:
+      - MODEL_NAME=all-MiniLM-L6-v2
+    networks:
+      - search_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Redis for URL frontier (StormCrawler)
+  redis:
+    image: redis:7-alpine
+    container_name: redis-frontier
+    ports:
+      - "6379:6379"
+    networks:
+      - search_network
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # Zookeeper for Storm coordination
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - search_network
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # Storm Nimbus
+  nimbus:
+    image: apache/storm:2.4.0
+    container_name: storm-nimbus
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    environment:
+      - STORM_ZOOKEEPER_SERVERS=zookeeper:2181
+    volumes:
+      - ./storm-configs:/storm-configs
+    networks:
+      - search_network
+    command: storm nimbus
+
+  # Storm Supervisor
+  supervisor:
+    image: apache/storm:2.4.0
+    container_name: storm-supervisor
+    depends_on:
+      nimbus:
+        condition: service_started
+      zookeeper:
+        condition: service_healthy
+    environment:
+      - STORM_ZOOKEEPER_SERVERS=zookeeper:2181
+      - STORM_NIMBUS_SEEDS=nimbus
+    volumes:
+      - ./storm-configs:/storm-configs
+      - ./crawler-topology:/crawler-topology
+    networks:
+      - search_network
+    command: storm supervisor
+
+  # Storm UI
+  storm-ui:
+    image: apache/storm:2.4.0
+    container_name: storm-ui
+    depends_on:
+      nimbus:
+        condition: service_started
+    ports:
+      - "8081:8080"
+    environment:
+      - STORM_ZOOKEEPER_SERVERS=zookeeper:2181
+      - STORM_NIMBUS_SEEDS=nimbus
+    networks:
+      - search_network
+    command: storm ui
+
+  # Fixed: Simplified crawler service (will submit topology after startup)
+  crawler-setup:
+    image: apache/storm:2.4.0
+    container_name: crawler-setup
+    depends_on:
+      nimbus:
+        condition: service_started
+      solr:
+        condition: service_healthy
+      embedding-service:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - STORM_ZOOKEEPER_SERVERS=zookeeper:2181
+      - STORM_NIMBUS_SEEDS=nimbus
+    volumes:
+      - ./storm-configs:/storm-configs
+      - ./crawler-topology:/crawler-topology
+      - ./scripts:/scripts
+    networks:
+      - search_network
+    command: >
+      bash -c "
+        echo 'Waiting for Storm cluster to be ready...' &&
+        sleep 30 &&
+        echo 'Submitting crawler topology...' &&
+        /scripts/submit-crawler-topology.sh || echo 'Topology submission failed - will retry manually'
+      "
+    restart: "no"
+
+volumes:
+  solr_data:
+
+networks:
+  search_network:
+    driver: bridge
