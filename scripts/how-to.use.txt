@@ -1,0 +1,11 @@
+# 1) deps
+pip install beautifulsoup4 sentence-transformers
+
+# 2) env (optional overrides)
+export SOLR_URL="http://localhost:8983/solr"
+export COLLECTION_NAME="hybrid_search"     # your collection/core
+export COMMIT=true                         # or false for bulk
+
+# 3) run
+bash scripts/enhanced-seed-with-real-scraping.sh
+scrape_and_index "https://example.com/some-page"
