@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<schema name="hybrid-search-schema" version="1.6">
+  
+  <!-- Field types -->
+  <fieldType name="string" class="solr.StrField" sortMissingLast="true"/>
+  <fieldType name="text_general" class="solr.TextField" positionIncrementGap="100">
+    <analyzer type="index">
+      <tokenizer class="solr.StandardTokenizerFactory"/>
+      <filter class="solr.StopFilterFactory" ignoreCase="true" words="stopwords.txt"/>
+      <filter class="solr.LowerCaseFilterFactory"/>
+    </analyzer>
+    <analyzer type="query">
+      <tokenizer class="solr.StandardTokenizerFactory"/>
+      <filter class="solr.StopFilterFactory" ignoreCase="true" words="stopwords.txt"/>
+      <filter class="solr.SynonymGraphFilterFactory" synonyms="synonyms.txt" ignoreCase="true" expand="true"/>
+      <filter class="solr.LowerCaseFilterFactory"/>
+    </analyzer>
+  </fieldType>
+  
+  <!-- Dense vector field for semantic search -->
+  <fieldType name="knn_vector" class="solr.DenseVectorField" vectorDimension="384" similarityFunction="cosine" knnAlgorithm="hnsw">
+    <lst name="hnswParameters">
+      <int name="maxConn">16</int>
+      <int name="beamWidth">100</int>
+    </lst>
+  </fieldType>
+  
+  <fieldType name="plong" class="solr.LongPointField"/>
+  <fieldType name="pdate" class="solr.DatePointField"/>
+  <fieldType name="pfloat" class="solr.FloatPointField"/>
+  
+  <!-- Fields -->
+  <field name="id" type="string" indexed="true" stored="true" required="true" multiValued="false"/>
+  <field name="url" type="string" indexed="true" stored="true"/>
+  <field name="title" type="text_general" indexed="true" stored="true"/>
+  <field name="content" type="text_general" indexed="true" stored="true"/>
+  <field name="content_vector" type="knn_vector" indexed="true" stored="true"/>
+  <field name="domain" type="string" indexed="true" stored="true"/>
+  <field name="crawl_date" type="pdate" indexed="true" stored="true"/>
+  <field name="page_rank" type="pfloat" indexed="true" stored="true" default="0.0"/>
+  <field name="content_length" type="plong" indexed="true" stored="true"/>
+  
+  <!-- Copy field for default search -->
+  <copyField source="title" dest="content"/>
+  
+  <!-- Unique key -->
+  <uniqueKey>id</uniqueKey>
+</schema>
