@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<config>
+  <!-- Basic Solr configuration with LTR support -->
+  <luceneMatchVersion>9.0.0</luceneMatchVersion>
+  
+  <!-- Data directory -->
+  <dataDir>${solr.data.dir:}</dataDir>
+  
+  <!-- Index config -->
+  <indexConfig>
+    <lockType>${solr.lock.type:native}</lockType>
+  </indexConfig>
+  
+  <!-- Update handler -->
+  <updateHandler class="solr.DirectUpdateHandler2">
+    <updateLog>
+      <str name="dir">${solr.ulog.dir:}</str>
+    </updateLog>
+    <autoCommit>
+      <maxTime>15000</maxTime>
+      <openSearcher>false</openSearcher>
+    </autoCommit>
+    <autoSoftCommit>
+      <maxTime>1000</maxTime>
+    </autoSoftCommit>
+  </updateHandler>
+  
+  <!-- Request handlers -->
+  <requestHandler name="/select" class="solr.SearchHandler">
+    <lst name="defaults">
+      <str name="echoParams">explicit</str>
+      <int name="rows">10</int>
+      <str name="df">content</str>
+    </lst>
+  </requestHandler>
+  
+  <!-- Hybrid search handler (BM25 + Vector) -->
+  <requestHandler name="/hybrid" class="solr.SearchHandler">
+    <lst name="defaults">
+      <str name="defType">edismax</str>
+      <str name="qf">title^2 content</str>
+      <str name="pf">title^2 content</str>
+      <str name="rows">20</str>
+      <str name="fl">id,title,content,score,[features]</str>
+    </lst>
+  </requestHandler>
+  
+  <!-- LTR handler -->
+  <requestHandler name="/ltr" class="org.apache.solr.ltr.LTRQParserPlugin$LTRRequestHandler"/>
+  
+  <!-- Update handler -->
+  <requestHandler name="/update" class="solr.UpdateRequestHandler"/>
+  
+  <!-- Admin handlers -->
+  <requestHandler name="/admin/ping" class="solr.PingRequestHandler">
+    <lst name="invariants">
+      <str name="q">*:*</str>
+    </lst>
+  </requestHandler>
+  
+  <!-- LTR transformer -->
+  <transformer name="features" class="org.apache.solr.ltr.LTRFeatureLoggerTransformerFactory">
+    <str name="fvCacheName">QUERY_DOC_FV</str>
+  </transformer>
+  
+  <!-- Query parser for LTR -->
+  <queryParser name="ltr" class="org.apache.solr.ltr.LTRQParserPlugin"/>
+  
+  <!-- Cache for LTR feature vectors -->
+  <cache name="QUERY_DOC_FV" class="solr.search.LRUCache" size="4096" initialSize="2048" autowarmCount="4096" regenerator="false"/>
+</config>
