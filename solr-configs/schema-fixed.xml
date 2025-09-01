@@ -8,8 +8,8 @@
              knnAlgorithm="hnsw">
     <lst name="hnswParameters">
       <!-- Optimized for 384-dim vectors -->
-      <int name="maxConn">32</int>        <!-- Higher for better recall -->
-      <int name="beamWidth">200</int>     <!-- Higher for better precision -->
+      <int name="maxConn">48</int>        <!-- Higher for better recall -->
+      <int name="beamWidth">300</int>     <!-- Higher for better precision -->
       <int name="maxLevels">8</int>       <!-- Good for medium-large collections -->
     </lst>
   </fieldType>
