@@ -23,7 +23,7 @@ curl -X PUT "$SOLR_URL/$COLLECTION_NAME/schema/feature-store" \
         "name": "vector_similarity",
         "class": "org.apache.solr.ltr.feature.SolrFeature",
         "params": {
-          "q": "{!vectorSimilarity f=content_vector}${user_vector}"
+          "q": "{!knn f=content_vector topK=10}${user_vector}"
         }
       },
       {
