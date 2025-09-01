@@ -2,7 +2,7 @@
 <schema name="optimized-hybrid-search" version="1.6">
   
   <!-- Optimized Dense vector field for all-MiniLM-L6-v2 (384 dimensions) -->
-  <fieldType name="optimized_knn_vector" class="solr.DenseVectorField" 
+  <fieldType name="knn_vector" class="solr.DenseVectorField" 
              vectorDimension="384" 
              similarityFunction="cosine" 
              knnAlgorithm="hnsw">
