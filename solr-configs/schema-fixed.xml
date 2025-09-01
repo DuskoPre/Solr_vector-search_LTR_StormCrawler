@@ -47,7 +47,7 @@
   <field name="content" type="enhanced_text" indexed="true" stored="true"/>
   
   <!-- Optimized vector field -->
-  <field name="content_vector" type="optimized_knn_vector" indexed="true" stored="true" required="false"/>
+  <field name="content_vector" type="knn_vector" indexed="true" stored="true" required="false"/>
   
   <!-- Enhanced metadata fields -->
   <field name="domain" type="string" indexed="true" stored="true" facet="true"/>
