@@ -1,0 +1,67 @@
+# StormCrawler Indexer Configuration
+# Extracted from the corrupted bash file and properly formatted
+
+# Indexer configuration with vector field mapping
+config:
+  # Solr indexer settings
+  indexer.class: "com.digitalpebble.stormcrawler.solr.SolrIndexer"
+  indexer.url.fieldname: "url"
+  indexer.text.fieldname: "content" 
+  indexer.title.fieldname: "title"
+  indexer.domain.fieldname: "domain"
+  indexer.date.fieldname: "crawl_date"
+  
+  # Vector embedding configuration
+  embedding.service.url: "http://embedding-service:8080"
+  embedding.field.name: "content_vector"
+  embedding.model: "all-MiniLM-L6-v2"
+  embedding.dimension: 384
+  
+  # Content processing limits
+  content.max.length: 5000  # Limit for embedding generation
+  
+  # Solr specific indexing settings
+  solr.indexer.doc.buffer: 100
+  solr.indexer.delete.by.query: false
+  solr.indexer.commit.size: 50
+  solr.indexer.commit.within: 10000
+  
+  # Field mappings for better indexing
+  field.mapping:
+    url: "url"
+    title: "title" 
+    content: "content"
+    domain: "domain"
+    crawl_date: "crawl_date"
+    content_vector: "content_vector"
+    page_rank: "page_rank"
+    content_length: "content_length"
+  
+  # Additional metadata fields
+  metadata.transfer:
+    - "content-type"
+    - "content-length"
+    - "last-modified"
+    - "charset"
+  
+  # Vector generation settings
+  vector.generation:
+    enabled: true
+    service.url: "http://embedding-service:8080/encode"
+    model.name: "all-MiniLM-L6-v2"
+    dimension: 384
+    max.text.length: 5000
+    timeout.ms: 30000
+    
+  # Error handling
+  error.handling:
+    skip.on.embedding.failure: true
+    log.embedding.errors: true
+    max.retries: 3
+    
+  # Performance tuning
+  performance:
+    batch.size: 10
+    concurrent.requests: 5
+    connection.timeout: 30000
+    read.timeout: 60000
